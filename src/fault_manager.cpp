@@ -16,13 +16,16 @@
  *          - Fault occurrence counting
  *          - FreeRTOS tick timestamps
  *          - Duplicate-fault suppression
+ *          - Event Logger integration for fault transitions
  *
- *      Complete historical event storage is intentionally handled by the
- *      Event Logger subsystem.
+ *      Complete historical event storage is handled by the Event Logger
+ *      subsystem.
  *
  ******************************************************************************/
 
 #include "fault_manager.h"
+
+#include "event_logger.h"
 
 #include "esp_log.h"
 
@@ -149,6 +152,10 @@ void Raise(const FaultCode code)
     g_currentFault.occurrenceCount = g_occurrenceCount;
     g_currentFault.timestamp = xTaskGetTickCount();
 
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::FaultRaised,
+        static_cast<uint32_t>(code));
+
     ESP_LOGE(
         LOG_TAG,
         "FAULT RAISED: %s. Occurrence: %lu.",
@@ -164,10 +171,13 @@ void Clear()
     if (!g_currentFault.active)
         return;
 
+    const FaultCode clearedCode =
+        g_currentFault.code;
+
     ESP_LOGI(
         LOG_TAG,
         "FAULT CLEARED: %s.",
-        FaultToString(g_currentFault.code));
+        FaultToString(clearedCode));
 
     /*
      * Retain the complete fault record before clearing current health.
@@ -178,6 +188,10 @@ void Clear()
     g_currentFault.active = false;
     g_currentFault.occurrenceCount = g_occurrenceCount;
     g_currentFault.timestamp = xTaskGetTickCount();
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::FaultCleared,
+        static_cast<uint32_t>(clearedCode));
 }
 
 bool IsActive()

@@ -1,0 +1,166 @@
+/******************************************************************************
+ *
+ *  Project:
+ *      WashTrac Core
+ *
+ *  File:
+ *      main.cpp
+ *
+ *  Description:
+ *      Main firmware entry point, system initialization, and runtime loop.
+ *
+ *  Copyright:
+ *      © 2026 WashTrac
+ *
+ ******************************************************************************/
+
+#include "system.h"
+
+#include "config.h"
+#include "gpio_manager.h"
+#include "input_manager.h"
+#include "relay_scheduler.h"
+#include "state_machine.h"
+#include "wash_queue.h"
+
+#include "esp_err.h"
+#include "esp_log.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+namespace
+{
+
+constexpr const char* LOG_TAG = "WashTracCore";
+
+bool CheckResult(
+    const WashTrac::Result result,
+    const char* const moduleName)
+{
+    if (result == WashTrac::Result::OK)
+    {
+        ESP_LOGI(LOG_TAG, "%s initialized.", moduleName);
+        return true;
+    }
+
+    ESP_LOGE(
+        LOG_TAG,
+        "%s initialization failed. Result code: %u",
+        moduleName,
+        static_cast<unsigned int>(result));
+
+    return false;
+}
+
+bool InitializeSystem()
+{
+    ESP_LOGI(LOG_TAG, "Project: %s", WashTrac::PROJECT_NAME);
+    ESP_LOGI(LOG_TAG, "Firmware version: %s", WashTrac::FIRMWARE_VERSION);
+    ESP_LOGI(
+        LOG_TAG,
+        "Hardware revision: %u",
+        static_cast<unsigned int>(WashTrac::HARDWARE_REVISION));
+    ESP_LOGI(
+        LOG_TAG,
+        "Configuration version: %u",
+        static_cast<unsigned int>(WashTrac::CONFIG_VERSION));
+
+    if (!CheckResult(
+            WashTrac::ConfigurationManager::Initialize(),
+            "Configuration Manager"))
+    {
+        return false;
+    }
+
+    const esp_err_t gpioResult = WashTrac::GPIO::Initialize();
+
+    if (gpioResult != ESP_OK)
+    {
+        ESP_LOGE(
+            LOG_TAG,
+            "GPIO Manager initialization failed: %s",
+            esp_err_to_name(gpioResult));
+
+        return false;
+    }
+
+    ESP_LOGI(LOG_TAG, "GPIO Manager initialized.");
+
+    if (!CheckResult(
+            WashTrac::Inputs::Initialize(),
+            "Input Manager"))
+    {
+        return false;
+    }
+
+    if (!CheckResult(
+            WashTrac::Relays::Initialize(),
+            "Relay Scheduler"))
+    {
+        return false;
+    }
+
+    if (!CheckResult(
+            WashTrac::WashQueue::Initialize(),
+            "Wash Queue"))
+    {
+        return false;
+    }
+
+    WashTrac::StateMachine::Initialize();
+    ESP_LOGI(LOG_TAG, "State Machine initialized.");
+
+    ESP_LOGI(LOG_TAG, "System foundation initialized.");
+
+    return true;
+}
+
+void RunSystem()
+{
+    while (true)
+    {
+        /*
+         * Inputs are updated first so the state machine always acts on the
+         * newest available Wash Busy and E-Stop states.
+         */
+        WashTrac::Inputs::Update();
+
+        /*
+         * The state machine decides whether any new relay action is required.
+         */
+        WashTrac::StateMachine::Update();
+
+        /*
+         * The relay scheduler processes on-delay, active-duration, and
+         * off-delay timing for all six relay outputs.
+         */
+        WashTrac::Relays::Update();
+
+        vTaskDelay(pdMS_TO_TICKS(WashTrac::SYSTEM_TICK_MS));
+    }
+}
+
+} // namespace
+
+extern "C" void app_main()
+{
+    ESP_LOGI(LOG_TAG, "WashTrac Core booting.");
+
+    if (!InitializeSystem())
+    {
+        ESP_LOGE(
+            LOG_TAG,
+            "WashTrac Core initialization failed. "
+            "Runtime operation has been inhibited.");
+
+        while (true)
+        {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
+
+    ESP_LOGI(LOG_TAG, "WashTrac Core initialization complete.");
+
+    RunSystem();
+}

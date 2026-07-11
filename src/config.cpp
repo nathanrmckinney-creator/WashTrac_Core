@@ -22,6 +22,8 @@
 
 #include "config.h"
 
+#include "event_logger.h"
+
 #include "esp_crc.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -203,6 +205,9 @@ Result ConfigurationManager::Load()
 
     g_config = storedConfig;
 
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::ConfigurationLoaded);
+
     ESP_LOGI(LOG_TAG, "Configuration loaded from NVS.");
 
     return Result::OK;
@@ -268,6 +273,9 @@ Result ConfigurationManager::Save()
         return Result::STORAGE_FAILURE;
     }
 
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::ConfigurationSaved);
+
     ESP_LOGI(LOG_TAG, "Configuration saved to NVS.");
 
     return Result::OK;
@@ -283,7 +291,12 @@ Result ConfigurationManager::ResetFactory()
     const Result result = Save();
 
     if (result == Result::OK)
+    {
+        WashTrac::Events::Log(
+            WashTrac::Events::EventCode::FactoryReset);
+
         ESP_LOGI(LOG_TAG, "Factory configuration restored.");
+    }
 
     return result;
 }

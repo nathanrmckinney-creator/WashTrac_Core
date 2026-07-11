@@ -17,6 +17,8 @@
 #include "system.h"
 
 #include "config.h"
+#include "event_logger.h"
+#include "fault_manager.h"
 #include "gpio_manager.h"
 #include "input_manager.h"
 #include "relay_scheduler.h"
@@ -28,7 +30,6 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "fault_manager.h"
 
 namespace
 {
@@ -56,6 +57,16 @@ bool CheckResult(
 
 bool InitializeSystem()
 {
+    if (!CheckResult(
+            WashTrac::Events::Initialize(),
+            "Event Logger"))
+    {
+        return false;
+    }
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::Boot);
+
     ESP_LOGI(LOG_TAG, "Project: %s", WashTrac::PROJECT_NAME);
     ESP_LOGI(LOG_TAG, "Firmware version: %s", WashTrac::FIRMWARE_VERSION);
     ESP_LOGI(
@@ -118,6 +129,9 @@ bool InitializeSystem()
 
     WashTrac::StateMachine::Initialize();
     ESP_LOGI(LOG_TAG, "State Machine initialized.");
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::SystemInitialized);
 
     ESP_LOGI(LOG_TAG, "System foundation initialized.");
 

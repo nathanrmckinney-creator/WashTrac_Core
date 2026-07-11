@@ -24,9 +24,11 @@
 #include "relay_scheduler.h"
 #include "state_machine.h"
 #include "wash_queue.h"
+#include "system_health.h"
 
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -127,6 +129,13 @@ bool InitializeSystem()
         return false;
     }
 
+    if (!CheckResult(
+            WashTrac::SystemHealth::Initialize(),
+            "System Health Manager"))
+    {
+        return false;
+    }
+
     WashTrac::StateMachine::Initialize();
     ESP_LOGI(LOG_TAG, "State Machine initialized.");
 
@@ -142,6 +151,7 @@ void RunSystem()
 {
     while (true)
     {
+        const int64_t loopStart = esp_timer_get_time();
         /*
          * Inputs are updated first so the state machine always acts on the
          * newest available Wash Busy and E-Stop states.
@@ -158,6 +168,13 @@ void RunSystem()
          * off-delay timing for all six relay outputs.
          */
         WashTrac::Relays::Update();
+
+        WashTrac::SystemHealth::Update();
+
+        const int64_t loopEnd = esp_timer_get_time();
+
+        WashTrac::SystemHealth::RecordLoopDuration(
+            static_cast<uint32_t>(loopEnd - loopStart));
 
         vTaskDelay(pdMS_TO_TICKS(WashTrac::SYSTEM_TICK_MS));
     }

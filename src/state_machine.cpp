@@ -1,6 +1,7 @@
 #include "state_machine.h"
 
 #include "config.h"
+#include "event_logger.h"
 #include "input_manager.h"
 #include "relay_scheduler.h"
 #include "wash_queue.h"
@@ -169,6 +170,9 @@ void Update()
      */
     if (g_state == SystemState::EStop)
     {
+        WashTrac::Events::Log(
+            WashTrac::Events::EventCode::EStopCleared);
+
         ResetCurrentWashAttempt();
         ChangeState(SystemState::Idle);
     }
@@ -215,6 +219,17 @@ void Update()
                             g_attemptCount - 1U);
                 }
 
+                if (g_retryCount > 0U)
+                {
+                    WashTrac::Events::Log(
+                        WashTrac::Events::EventCode::RetryStarted,
+                        static_cast<uint32_t>(g_retryCount));
+                }
+
+                WashTrac::Events::Log(
+                    WashTrac::Events::EventCode::WashStartAttempt,
+                    static_cast<uint32_t>(g_attemptCount));
+
                 ESP_LOGI(
                     LOG_TAG,
                     "Wash Start attempt %u fired.",
@@ -244,6 +259,10 @@ void Update()
              */
             if (WashTrac::Inputs::IsWashBusy())
             {
+                WashTrac::Events::Log(
+                    WashTrac::Events::EventCode::WashStarted,
+                    static_cast<uint32_t>(g_attemptCount));
+
                 ESP_LOGI(
                     LOG_TAG,
                     "Wash Busy confirmed on attempt %u.",
@@ -340,6 +359,10 @@ void Update()
              */
             if (!WashTrac::Inputs::IsWashBusy())
             {
+                WashTrac::Events::Log(
+                    WashTrac::Events::EventCode::WashCompleted,
+                    static_cast<uint32_t>(g_attemptCount));
+
                 ESP_LOGI(
                     LOG_TAG,
                     "Wash completion confirmed.");
@@ -490,6 +513,9 @@ void EnterEStop()
         "E-Stop active. Clearing pending wash queue.");
 
     WashTrac::WashQueue::Clear();
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::EStopActive);
 
     ResetCurrentWashAttempt();
     ChangeState(SystemState::EStop);

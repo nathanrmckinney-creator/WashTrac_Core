@@ -28,6 +28,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "fault_manager.h"
 
 namespace
 {
@@ -102,8 +103,15 @@ bool InitializeSystem()
     }
 
     if (!CheckResult(
-            WashTrac::WashQueue::Initialize(),
-            "Wash Queue"))
+        WashTrac::WashQueue::Initialize(),
+        "Wash Queue"))
+    {
+        return false;
+    }
+
+    if (!CheckResult(
+        WashTrac::Faults::Initialize(),
+        "Fault Manager"))
     {
         return false;
     }

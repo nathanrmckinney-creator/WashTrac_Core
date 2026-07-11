@@ -20,6 +20,8 @@
 
 #include "wash_queue.h"
 
+#include "event_logger.h"
+
 #include "esp_log.h"
 
 namespace
@@ -46,6 +48,9 @@ Result Initialize()
         return Result::OK;
 
     g_state.pendingCount = 0U;
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::QueueCleared);
     g_state.initialized = true;
 
     ESP_LOGI(LOG_TAG, "Wash Queue initialized.");
@@ -62,6 +67,10 @@ Result Enqueue()
         return Result::INVALID_PARAMETER;
 
     ++g_state.pendingCount;
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::WashQueued,
+        static_cast<uint32_t>(g_state.pendingCount));
 
     ESP_LOGI(
         LOG_TAG,
@@ -81,6 +90,10 @@ Result Dequeue()
 
     --g_state.pendingCount;
 
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::WashDequeued,
+        static_cast<uint32_t>(g_state.pendingCount));
+
     ESP_LOGI(
         LOG_TAG,
         "Wash removed from queue. Pending washes: %u",
@@ -95,6 +108,9 @@ void Clear()
         return;
 
     g_state.pendingCount = 0U;
+
+    WashTrac::Events::Log(
+        WashTrac::Events::EventCode::QueueCleared);
 
     ESP_LOGI(LOG_TAG, "Wash Queue cleared.");
 }

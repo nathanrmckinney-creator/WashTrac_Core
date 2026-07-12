@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "driver/gpio.h"
+#include "driver/uart.h"
 
 namespace WashTrac::Hardware
 {
@@ -40,7 +41,7 @@ constexpr gpio_num_t RELAY_6 = GPIO_NUM_6;
 //----------------------------------------------------------
 
 constexpr gpio_num_t INPUT_1 = GPIO_NUM_40;  // Wash Busy
-constexpr gpio_num_t INPUT_2 = GPIO_NUM_41;  // Spare
+constexpr gpio_num_t INPUT_2 = GPIO_NUM_41;  // E-Stop
 constexpr gpio_num_t INPUT_3 = GPIO_NUM_42;  // Spare
 constexpr gpio_num_t INPUT_4 = GPIO_NUM_45;  // Spare
 constexpr gpio_num_t INPUT_5 = GPIO_NUM_47;  // Spare
@@ -79,5 +80,9 @@ constexpr bool WASH_BUSY_ACTIVE_LEVEL = true;
 //----------------------------------------------------------
 
 constexpr uint32_t UART_BAUD_RATE = 115200;
+
+constexpr uart_port_t CM5_UART = UART_NUM_2;
+constexpr gpio_num_t CM5_UART_TX = GPIO_NUM_18;
+constexpr gpio_num_t CM5_UART_RX = GPIO_NUM_21;
 
 } // namespace WashTrac::Hardware

@@ -21,6 +21,7 @@
 #include "fault_manager.h"
 #include "gpio_manager.h"
 #include "input_manager.h"
+#include "manufacturing_self_test.h"
 #include "relay_scheduler.h"
 #include "state_machine.h"
 #include "wash_queue.h"
@@ -139,6 +140,13 @@ bool InitializeSystem()
 
     WashTrac::StateMachine::Initialize();
     ESP_LOGI(LOG_TAG, "State Machine initialized.");
+
+    if (!CheckResult(
+            WashTrac::ManufacturingSelfTest::Initialize(),
+            "Manufacturing Self-Test"))
+    {
+        return false;
+    }
 
     if (!CheckResult(
             WashTrac::ServiceConsole::Initialize(),

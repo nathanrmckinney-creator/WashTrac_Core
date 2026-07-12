@@ -25,6 +25,7 @@
 #include "event_logger.h"
 #include "fault_manager.h"
 #include "input_manager.h"
+#include "manufacturing_self_test.h"
 #include "relay_scheduler.h"
 #include "state_machine.h"
 #include "system_health.h"
@@ -245,6 +246,8 @@ void PrintHelp()
         "help       Show available commands\r\n"
         "version    Show firmware and hardware versions\r\n"
         "status     Show consolidated controller status\r\n"
+        "diag       Show subsystem readiness summary\r\n"
+        "selftest   Run the non-destructive manufacturing self-test\r\n"
         "health     Show runtime health information\r\n"
         "state      Show state-machine status\r\n"
         "queue      Show pending wash queue status\r\n"
@@ -570,6 +573,86 @@ void PrintStatus()
             health.loopDeadlineOverrunCount));
 }
 
+
+void PrintDiagnostics()
+{
+    PrintHeader("Diagnostics");
+
+    std::printf(
+        "Configuration.......%s\r\n"
+        "Event Logger........%s\r\n"
+        "System Health.......%s\r\n"
+        "Input Manager.......%s\r\n"
+        "Relay Scheduler.....%s\r\n"
+        "Wash Queue..........%s\r\n"
+        "Self-Test Module....%s\r\n"
+        "State Machine.......%s\r\n",
+        WashTrac::ConfigurationManager::IsConfigurationValid()
+            ? "Ready" : "Not Ready",
+        WashTrac::Events::IsInitialized()
+            ? "Ready" : "Not Ready",
+        WashTrac::SystemHealth::IsInitialized()
+            ? "Ready" : "Not Ready",
+        WashTrac::Inputs::IsInitialized()
+            ? "Ready" : "Not Ready",
+        WashTrac::Relays::IsInitialized()
+            ? "Ready" : "Not Ready",
+        WashTrac::WashQueue::IsInitialized()
+            ? "Ready" : "Not Ready",
+        WashTrac::ManufacturingSelfTest::IsInitialized()
+            ? "Ready" : "Not Ready",
+        StateToString(
+            WashTrac::StateMachine::GetState()));
+}
+
+void PrintSelfTest()
+{
+    PrintHeader("Manufacturing Self-Test");
+
+    const WashTrac::Result runResult =
+        WashTrac::ManufacturingSelfTest::Run();
+
+    if (runResult != WashTrac::Result::OK)
+    {
+        std::printf(
+            "Unable to run self-test. Result code: %u\r\n",
+            static_cast<unsigned>(runResult));
+        return;
+    }
+
+    for (std::size_t index = 0U;
+         index <
+             WashTrac::ManufacturingSelfTest::GetCheckCount();
+         ++index)
+    {
+        WashTrac::ManufacturingSelfTest::CheckResult result{};
+
+        if (!WashTrac::ManufacturingSelfTest::GetCheck(
+                index,
+                result))
+        {
+            continue;
+        }
+
+        std::printf(
+            "%-24s %s  Detail=%lu\r\n",
+            WashTrac::ManufacturingSelfTest::GetCheckName(
+                result.check),
+            WashTrac::ManufacturingSelfTest::GetStatusName(
+                result.status),
+            static_cast<unsigned long>(result.detail));
+    }
+
+    const WashTrac::ManufacturingSelfTest::Report& report =
+        WashTrac::ManufacturingSelfTest::GetReport();
+
+    std::printf(
+        "\r\nOVERALL RESULT..........%s\r\n"
+        "Run Count...............%lu\r\n",
+        report.passed ? "PASS" : "FAIL",
+        static_cast<unsigned long>(report.runCount));
+}
+
 void NormalizeCommand()
 {
     std::size_t writeIndex = 0U;
@@ -637,6 +720,18 @@ void ExecuteCommand()
                  "status") == 0)
     {
         PrintStatus();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag") == 0)
+    {
+        PrintDiagnostics();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "selftest") == 0)
+    {
+        PrintSelfTest();
     }
     else if (std::strcmp(
                  g_commandBuffer.data(),

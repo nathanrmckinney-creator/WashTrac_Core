@@ -49,6 +49,20 @@ constexpr std::size_t ToIndex(CheckId check)
     return static_cast<std::size_t>(check);
 }
 
+void ResetResults()
+{
+    for (std::size_t index = 0U;
+         index < WashTrac::ManufacturingSelfTest::CHECK_COUNT;
+         ++index)
+    {
+        g_report.checks[index].check =
+            static_cast<CheckId>(index);
+        g_report.checks[index].status =
+            CheckStatus::NotRun;
+        g_report.checks[index].detail = 0U;
+    }
+}
+
 void SetResult(
     CheckId check,
     bool passed,
@@ -120,14 +134,7 @@ Result Initialize()
     g_report.passed = false;
     g_report.runCount = 0U;
 
-    for (std::size_t i = 0U; i < CHECK_COUNT; ++i)
-    {
-        g_report.checks[i].check =
-            static_cast<CheckId>(i);
-        g_report.checks[i].status =
-            CheckStatus::NotRun;
-        g_report.checks[i].detail = 0U;
-    }
+    ResetResults();
 
     g_initialized = true;
 
@@ -142,22 +149,12 @@ Result Run()
     g_report.passed = true;
     ++g_report.runCount;
 
-    for (std::size_t i = 0U; i < CHECK_COUNT; ++i)
-    {
-        g_report.checks[i].check =
-            static_cast<CheckId>(i);
-        g_report.checks[i].status =
-            CheckStatus::NotRun;
-        g_report.checks[i].detail = 0U;
-    }
-
-    const bool configurationPassed =
-        ConfigurationManager::IsInitialized() &&
-        ConfigurationManager::IsConfigurationValid();
+    ResetResults();
 
     SetResult(
         CheckId::ConfigurationIntegrity,
-        configurationPassed);
+        ConfigurationManager::IsInitialized() &&
+            ConfigurationManager::IsConfigurationValid());
 
     const bool eventLoggerInitialized =
         Events::IsInitialized();
@@ -284,14 +281,10 @@ Result Run()
         queueCount = static_cast<uint32_t>(count);
 
         if (count > WashQueue::MAX_PENDING_WASHES)
-        {
             queuePassed = false;
-        }
 
         if (WashQueue::IsEmpty() != (count == 0U))
-        {
             queuePassed = false;
-        }
 
         if (WashQueue::IsFull() !=
             (count == WashQueue::MAX_PENDING_WASHES))
@@ -308,12 +301,9 @@ Result Run()
     const StateMachine::SystemState state =
         StateMachine::GetState();
 
-    const bool stateMachinePassed =
-        IsSystemStateValid(state);
-
     SetResult(
         CheckId::StateMachine,
-        stateMachinePassed,
+        IsSystemStateValid(state),
         static_cast<uint32_t>(state));
 
     return Result::OK;
@@ -322,6 +312,22 @@ Result Run()
 const Report& GetReport()
 {
     return g_report;
+}
+
+std::size_t GetCheckCount()
+{
+    return CHECK_COUNT;
+}
+
+bool GetCheck(
+    std::size_t index,
+    CheckResult& result)
+{
+    if (index >= CHECK_COUNT)
+        return false;
+
+    result = g_report.checks[index];
+    return true;
 }
 
 bool IsInitialized()

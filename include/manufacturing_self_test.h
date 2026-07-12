@@ -74,6 +74,12 @@ Result Run();
 
 const Report& GetReport();
 
+std::size_t GetCheckCount();
+
+bool GetCheck(
+    std::size_t index,
+    CheckResult& result);
+
 bool IsInitialized();
 
 const char* GetCheckName(CheckId check);

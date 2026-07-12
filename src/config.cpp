@@ -431,6 +431,18 @@ Result ConfigurationManager::SetInterWashDelay(
     return Result::OK;
 }
 
+bool ConfigurationManager::IsConfigurationValid()
+{
+    if (!g_initialized)
+        return false;
+
+    if (!Validate(g_config))
+        return false;
+
+    return g_config.header.crc32 ==
+        CalculateCrc(g_config);
+}
+
 bool ConfigurationManager::IsInitialized()
 {
     return g_initialized;

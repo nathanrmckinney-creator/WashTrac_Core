@@ -132,6 +132,8 @@ public:
     static Result SetInterWashDelay(
         uint16_t delaySeconds);
 
+    static bool IsConfigurationValid();
+
     static bool IsInitialized();
 
 private:

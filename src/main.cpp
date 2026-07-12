@@ -17,6 +17,7 @@
 #include "system.h"
 
 #include "config.h"
+#include "diagnostics_manager.h"
 #include "event_logger.h"
 #include "fault_manager.h"
 #include "gpio_manager.h"

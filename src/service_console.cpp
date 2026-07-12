@@ -22,6 +22,7 @@
 #include "service_console.h"
 
 #include "config.h"
+#include "diagnostics_manager.h"
 #include "event_logger.h"
 #include "fault_manager.h"
 #include "input_manager.h"
@@ -247,6 +248,14 @@ void PrintHelp()
         "version    Show firmware and hardware versions\r\n"
         "status     Show consolidated controller status\r\n"
         "diag       Show subsystem readiness summary\r\n"
+        "diag status   Show diagnostics snapshot summary\r\n"
+        "diag inputs   Show input states and transition counts\r\n"
+        "diag relays   Show relay states and activation counts\r\n"
+        "diag faults   Show current diagnostics fault snapshot\r\n"
+        "diag health   Show diagnostics health snapshot\r\n"
+        "diag queue    Show diagnostics queue snapshot\r\n"
+        "diag runtime  Show diagnostics runtime counters\r\n"
+        "diag version  Show firmware and hardware versions\r\n"
         "selftest   Run the non-destructive manufacturing self-test\r\n"
         "health     Show runtime health information\r\n"
         "state      Show state-machine status\r\n"
@@ -605,6 +614,166 @@ void PrintDiagnostics()
             WashTrac::StateMachine::GetState()));
 }
 
+
+void PrintDiagnosticsStatus()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Status");
+
+    std::printf(
+        "State...............%s\r\n"
+        "Retry Count.........%u\r\n"
+        "Pending Washes......%u\r\n"
+        "Queue Empty.........%s\r\n"
+        "Queue Full..........%s\r\n"
+        "Active Fault........%s\r\n"
+        "Updates.............%llu\r\n",
+        StateToString(snapshot.systemState),
+        static_cast<unsigned>(snapshot.retryCount),
+        static_cast<unsigned>(snapshot.pendingWashCount),
+        snapshot.queueEmpty ? "Yes" : "No",
+        snapshot.queueFull ? "Yes" : "No",
+        FaultToString(snapshot.currentFault.code),
+        static_cast<unsigned long long>(snapshot.updateCount));
+}
+
+void PrintDiagnosticsInputs()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Inputs");
+
+    for (std::size_t index = 0U;
+         index < WashTrac::INPUT_COUNT;
+         ++index)
+    {
+        std::printf(
+            "Input %u.............%-8s Transitions=%lu\r\n",
+            static_cast<unsigned>(index + 1U),
+            snapshot.inputStates[index] ? "Active" : "Inactive",
+            static_cast<unsigned long>(
+                snapshot.inputTransitionCounts[index]));
+    }
+}
+
+void PrintDiagnosticsRelays()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Relays");
+
+    for (std::size_t index = 0U;
+         index < WashTrac::RELAY_COUNT;
+         ++index)
+    {
+        std::printf(
+            "Relay %u.............%-16s Activations=%lu\r\n",
+            static_cast<unsigned>(index + 1U),
+            RelayStateToString(snapshot.relayStates[index]),
+            static_cast<unsigned long>(
+                snapshot.relayActivationCounts[index]));
+    }
+}
+
+void PrintDiagnosticsFaults()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Fault");
+
+    std::printf(
+        "Code................%s\r\n"
+        "Active..............%s\r\n"
+        "Occurrence..........%lu\r\n"
+        "Timestamp...........%lu\r\n",
+        FaultToString(snapshot.currentFault.code),
+        snapshot.currentFault.active ? "Yes" : "No",
+        static_cast<unsigned long>(
+            snapshot.currentFault.occurrenceCount),
+        static_cast<unsigned long>(
+            snapshot.currentFault.timestamp));
+}
+
+void PrintDiagnosticsHealth()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Health");
+
+    std::printf(
+        "Uptime..............%llu ms\r\n"
+        "Free Heap...........%lu bytes\r\n"
+        "Minimum Free Heap...%lu bytes\r\n"
+        "Largest Block.......%lu bytes\r\n"
+        "Stack High-Water....%lu bytes\r\n"
+        "Last Loop...........%lu us\r\n"
+        "Maximum Loop........%lu us\r\n"
+        "Loop Overruns.......%lu\r\n",
+        static_cast<unsigned long long>(
+            snapshot.systemHealth.uptimeMilliseconds),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.freeHeapBytes),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.minimumFreeHeapBytes),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.largestFreeHeapBlockBytes),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.mainTaskStackHighWaterBytes),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.lastLoopDurationMicroseconds),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.maximumLoopDurationMicroseconds),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.loopDeadlineOverrunCount));
+}
+
+void PrintDiagnosticsQueue()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Queue");
+
+    std::printf(
+        "Pending Washes......%u\r\n"
+        "Maximum.............%u\r\n"
+        "Empty...............%s\r\n"
+        "Full................%s\r\n",
+        static_cast<unsigned>(snapshot.pendingWashCount),
+        static_cast<unsigned>(
+            WashTrac::WashQueue::MAX_PENDING_WASHES),
+        snapshot.queueEmpty ? "Yes" : "No",
+        snapshot.queueFull ? "Yes" : "No");
+}
+
+void PrintDiagnosticsRuntime()
+{
+    const WashTrac::Diagnostics::Snapshot& snapshot =
+        WashTrac::Diagnostics::GetSnapshot();
+
+    PrintHeader("Diagnostics Runtime");
+
+    std::printf(
+        "Diagnostics Updates.%llu\r\n"
+        "State...............%s\r\n"
+        "Retry Count.........%u\r\n"
+        "Maximum Loop........%lu us\r\n"
+        "Loop Overruns.......%lu\r\n",
+        static_cast<unsigned long long>(snapshot.updateCount),
+        StateToString(snapshot.systemState),
+        static_cast<unsigned>(snapshot.retryCount),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.maximumLoopDurationMicroseconds),
+        static_cast<unsigned long>(
+            snapshot.systemHealth.loopDeadlineOverrunCount));
+}
+
 void PrintSelfTest()
 {
     PrintHeader("Manufacturing Self-Test");
@@ -726,6 +895,54 @@ void ExecuteCommand()
                  "diag") == 0)
     {
         PrintDiagnostics();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag status") == 0)
+    {
+        PrintDiagnosticsStatus();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag inputs") == 0)
+    {
+        PrintDiagnosticsInputs();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag relays") == 0)
+    {
+        PrintDiagnosticsRelays();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag faults") == 0)
+    {
+        PrintDiagnosticsFaults();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag health") == 0)
+    {
+        PrintDiagnosticsHealth();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag queue") == 0)
+    {
+        PrintDiagnosticsQueue();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag runtime") == 0)
+    {
+        PrintDiagnosticsRuntime();
+    }
+    else if (std::strcmp(
+                 g_commandBuffer.data(),
+                 "diag version") == 0)
+    {
+        PrintVersion();
     }
     else if (std::strcmp(
                  g_commandBuffer.data(),

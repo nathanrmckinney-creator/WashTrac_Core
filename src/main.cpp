@@ -25,6 +25,7 @@
 #include "state_machine.h"
 #include "wash_queue.h"
 #include "system_health.h"
+#include "service_console.h"
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -139,6 +140,13 @@ bool InitializeSystem()
     WashTrac::StateMachine::Initialize();
     ESP_LOGI(LOG_TAG, "State Machine initialized.");
 
+    if (!CheckResult(
+            WashTrac::ServiceConsole::Initialize(),
+            "Service Console"))
+    {
+        return false;
+    }
+
     WashTrac::Events::Log(
         WashTrac::Events::EventCode::SystemInitialized);
 
@@ -170,6 +178,8 @@ void RunSystem()
         WashTrac::Relays::Update();
 
         WashTrac::SystemHealth::Update();
+
+        WashTrac::ServiceConsole::Update();
 
         const int64_t loopEnd = esp_timer_get_time();
 

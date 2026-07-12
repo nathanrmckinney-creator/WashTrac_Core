@@ -366,20 +366,22 @@ Result ConfigurationManager::SetInput(
         g_config.inputs[inputNumber - 1U];
 
     /*
-     * Input 1 is permanently assigned to Wash Busy.
+     * Inputs 1 and 2 are permanently assigned and must remain enabled.
+     * Their electrical polarity remains installer-configurable.
+     *
+     * Input 1 default:
+     *     Voltage present = Wash Busy active
+     *
+     * Input 2 default:
+     *     Voltage present = healthy
+     *     Voltage absent  = E-Stop active
      */
     if (inputNumber == 1U)
     {
         input.enabled = true;
-        input.inverted = false;
+        input.inverted = inverted;
         CopyName(input.name, "Wash Busy");
     }
-    /*
-     * Input 2 is permanently assigned to the E-Stop circuit.
-     * Default logic is inverted:
-     *     Voltage present = healthy
-     *     Voltage absent  = E-Stop active
-     */
     else if (inputNumber == 2U)
     {
         input.enabled = true;
@@ -485,10 +487,10 @@ void ConfigurationManager::LoadFactoryDefaults()
     CopyName(g_config.relays[5].name, "Relay 6");
 
     for (std::size_t i = 0U; i < INPUT_COUNT; ++i)
-{
-    g_config.inputs[i].enabled = false;
-    g_config.inputs[i].inverted = false;
-}
+    {
+        g_config.inputs[i].enabled = false;
+        g_config.inputs[i].inverted = false;
+    }
 
     g_config.inputs[0].enabled = true;
     g_config.inputs[0].inverted = false;

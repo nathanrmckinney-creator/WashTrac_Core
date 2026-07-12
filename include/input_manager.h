@@ -14,7 +14,11 @@
  *      hardware inputs.
  *
  *      Input 1 is permanently assigned as the Wash Busy input.
- *      Inputs 2 through 6 are reserved for future expansion.
+ *      Input 2 is permanently assigned as the E-Stop input.
+ *      Inputs 3 through 6 are configurable spare inputs.
+ *
+ *      All reported input states are logical states after configuration,
+ *      including the per-input inversion setting.
  *
  *  Copyright:
  *      © 2026 WashTrac

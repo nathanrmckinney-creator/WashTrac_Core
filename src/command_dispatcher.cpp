@@ -562,26 +562,6 @@ void HandleQueueStatus(
     SendBuiltResponse(message, "queue_status", writer);
 }
 
-void AppendBooleanArray(
-    Writer& writer,
-    const std::array<bool, WashTrac::INPUT_COUNT>& values)
-{
-    writer.Append("[");
-
-    for (std::size_t index = 0U;
-         index < values.size();
-         ++index)
-    {
-        if (index > 0U)
-        {
-            writer.Append(",");
-        }
-
-        writer.AppendBoolean(values[index]);
-    }
-
-    writer.Append("]");
-}
 
 void AppendUnsignedArray(
     Writer& writer,

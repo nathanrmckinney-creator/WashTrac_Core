@@ -27,7 +27,7 @@
 namespace WashTrac::UartProtocol
 {
 
-constexpr std::size_t MAXIMUM_LINE_LENGTH = 512U;
+constexpr std::size_t MAXIMUM_LINE_LENGTH = 1024U;
 
 Result Initialize();
 

@@ -30,7 +30,7 @@ namespace WashTrac::JsonProtocol
 
 constexpr std::size_t REQUEST_ID_LENGTH = 40U;
 constexpr std::size_t NAME_LENGTH = 32U;
-constexpr std::size_t RESPONSE_LENGTH = 512U;
+constexpr std::size_t RESPONSE_LENGTH = 1024U;
 
 enum class Command : uint8_t
 {

@@ -655,6 +655,9 @@ void HandleDiagnostics(
     const WashTrac::Diagnostics::Snapshot& snapshot =
         WashTrac::Diagnostics::GetSnapshot();
 
+    const WashTrac::CoreConfig& config =
+        WashTrac::ConfigurationManager::Get();
+
     Writer writer(
         g_responseBuffer.data(),
         g_responseBuffer.size());
@@ -683,10 +686,51 @@ void HandleDiagnostics(
     writer.AppendBoolean(
         snapshot.currentFault.active);
 
-    writer.Append(",\"inputs\":");
-    AppendBooleanArray(
-        writer,
-        snapshot.inputStates);
+    /*
+     * Production input diagnostics payload.
+     *
+     * Each entry combines the current logical input state from the
+     * Diagnostics Manager with the live configuration held by the
+     * Configuration Manager. This gives the CM5 everything required to
+     * display ACTIVE, INACTIVE, and E-STOP without additional commands.
+     */
+    writer.Append(",\"inputs\":[");
+
+    for (std::size_t index = 0U;
+         index < config.inputs.size();
+         ++index)
+    {
+        if (index > 0U)
+        {
+            writer.Append(",");
+        }
+
+        const WashTrac::InputConfig& input =
+            config.inputs[index];
+
+        writer.Append("{\"number\":");
+        writer.AppendUnsigned(index + 1U);
+
+        writer.Append(",\"name\":");
+        writer.AppendEscapedString(
+            input.name.data());
+
+        writer.Append(",\"enabled\":");
+        writer.AppendBoolean(
+            input.enabled);
+
+        writer.Append(",\"inverted\":");
+        writer.AppendBoolean(
+            input.inverted);
+
+        writer.Append(",\"state\":");
+        writer.AppendBoolean(
+            snapshot.inputStates[index]);
+
+        writer.Append("}");
+    }
+
+    writer.Append("]");
 
     writer.Append(",\"input_transitions\":");
     AppendUnsignedArray(

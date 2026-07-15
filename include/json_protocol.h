@@ -44,7 +44,8 @@ enum class Command : uint8_t
     SetRelay,
     SetInput,
     SetTiming,
-    SaveConfig
+    SaveConfig,
+    FactoryReset
 };
 
 struct Message

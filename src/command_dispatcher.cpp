@@ -39,6 +39,9 @@
 #include "wash_queue.h"
 
 #include "esp_log.h"
+#include "esp_system.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #include <array>
 #include <cstddef>
@@ -914,6 +917,25 @@ void HandleSaveConfig(
         result);
 }
 
+
+void HandleFactoryReset(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    const WashTrac::Result result =
+        WashTrac::ConfigurationManager::ResetFactory();
+
+    SendStandardResult(
+        message,
+        "factory_reset",
+        result);
+
+    if (result == WashTrac::Result::OK)
+    {
+        vTaskDelay(pdMS_TO_TICKS(250));
+        esp_restart();
+    }
+}
+
 void Dispatch(
     const WashTrac::JsonProtocol::Message& message)
 {
@@ -959,6 +981,10 @@ void Dispatch(
 
         case Command::SaveConfig:
             HandleSaveConfig(message);
+            break;
+
+        case Command::FactoryReset:
+            HandleFactoryReset(message);
             break;
 
         case Command::Unknown:

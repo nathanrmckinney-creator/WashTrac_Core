@@ -408,6 +408,9 @@ private:
         if (std::strcmp(command, "save_config") == 0)
             return Command::SaveConfig;
 
+        if (std::strcmp(command, "factory_reset") == 0)
+            return Command::FactoryReset;
+
         return Command::Unknown;
     }
 
@@ -605,6 +608,7 @@ private:
             case Command::Diagnostics:
             case Command::GetConfig:
             case Command::SaveConfig:
+            case Command::FactoryReset:
                 return true;
 
             case Command::SetRelay:
@@ -892,6 +896,9 @@ const char* CommandToString(const Command command)
 
         case Command::SaveConfig:
             return "save_config";
+
+        case Command::FactoryReset:
+            return "factory_reset";
 
         default:
             return "unknown";

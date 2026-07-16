@@ -411,6 +411,18 @@ private:
         if (std::strcmp(command, "factory_reset") == 0)
             return Command::FactoryReset;
 
+        if (std::strcmp(command, "lte_status") == 0)
+            return Command::LteStatus;
+
+        if (std::strcmp(command, "lte_signal") == 0)
+            return Command::LteSignal;
+
+        if (std::strcmp(command, "lte_info") == 0)
+            return Command::LteInfo;
+
+        if (std::strcmp(command, "lte_restart") == 0)
+            return Command::LteRestart;
+
         return Command::Unknown;
     }
 
@@ -609,6 +621,10 @@ private:
             case Command::GetConfig:
             case Command::SaveConfig:
             case Command::FactoryReset:
+            case Command::LteStatus:
+            case Command::LteSignal:
+            case Command::LteInfo:
+            case Command::LteRestart:
                 return true;
 
             case Command::SetRelay:
@@ -899,6 +915,18 @@ const char* CommandToString(const Command command)
 
         case Command::FactoryReset:
             return "factory_reset";
+
+        case Command::LteStatus:
+            return "lte_status";
+
+        case Command::LteSignal:
+            return "lte_signal";
+
+        case Command::LteInfo:
+            return "lte_info";
+
+        case Command::LteRestart:
+            return "lte_restart";
 
         default:
             return "unknown";

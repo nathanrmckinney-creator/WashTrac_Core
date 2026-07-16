@@ -45,7 +45,11 @@ enum class Command : uint8_t
     SetInput,
     SetTiming,
     SaveConfig,
-    FactoryReset
+    FactoryReset,
+    LteStatus,
+    LteSignal,
+    LteInfo,
+    LteRestart
 };
 
 struct Message

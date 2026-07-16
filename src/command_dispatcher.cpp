@@ -32,6 +32,7 @@
 #include "fault_manager.h"
 #include "input_manager.h"
 #include "json_protocol.h"
+#include "lte_manager.h"
 #include "relay_scheduler.h"
 #include "state_machine.h"
 #include "system_health.h"
@@ -109,6 +110,27 @@ public:
                 sizeof(number),
                 "%llu",
                 static_cast<unsigned long long>(value));
+
+        if (count <= 0 ||
+            static_cast<std::size_t>(count) >= sizeof(number))
+        {
+            valid_ = false;
+            return false;
+        }
+
+        return Append(number);
+    }
+
+    bool AppendSigned(const int64_t value)
+    {
+        char number[32]{};
+
+        const int count =
+            std::snprintf(
+                number,
+                sizeof(number),
+                "%lld",
+                static_cast<long long>(value));
 
         if (count <= 0 ||
             static_cast<std::size_t>(count) >= sizeof(number))
@@ -249,6 +271,36 @@ const char* StateToString(
 
         case SystemState::EStop:
             return "e_stop";
+
+        default:
+            return "unknown";
+    }
+}
+
+const char* LteStateToString(
+    const WashTrac::LTE::ModemState state)
+{
+    using WashTrac::LTE::ModemState;
+
+    switch (state)
+    {
+        case ModemState::Off:
+            return "off";
+
+        case ModemState::Initializing:
+            return "initializing";
+
+        case ModemState::Ready:
+            return "ready";
+
+        case ModemState::Registering:
+            return "registering";
+
+        case ModemState::Online:
+            return "online";
+
+        case ModemState::Error:
+            return "error";
 
         default:
             return "unknown";
@@ -918,6 +970,132 @@ void HandleSaveConfig(
 }
 
 
+void HandleLteStatus(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    const WashTrac::LTE::Status& status =
+        WashTrac::LTE::GetStatus();
+
+    Writer writer(
+        g_responseBuffer.data(),
+        g_responseBuffer.size());
+
+    BeginDataResponse(writer, message, "lte_status");
+
+    writer.Append(",\"state\":");
+    writer.AppendEscapedString(
+        LteStateToString(status.state));
+
+    writer.Append(",\"modem_present\":");
+    writer.AppendBoolean(status.modemPresent);
+
+    writer.Append(",\"sim_present\":");
+    writer.AppendBoolean(status.simPresent);
+
+    writer.Append(",\"registered\":");
+    writer.AppendBoolean(status.registered);
+
+    writer.Append(",\"online\":");
+    writer.AppendBoolean(
+        WashTrac::LTE::IsOnline());
+
+    writer.Append(",\"carrier\":");
+    writer.AppendEscapedString(status.carrier);
+
+    writer.Append(",\"ip_address\":");
+    writer.AppendEscapedString(status.ipAddress);
+
+    writer.Append(",\"uptime_seconds\":");
+    writer.AppendUnsigned(status.uptimeSeconds);
+
+    writer.Append("}");
+
+    SendBuiltResponse(message, "lte_status", writer);
+}
+
+void HandleLteSignal(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    const WashTrac::LTE::Status& status =
+        WashTrac::LTE::GetStatus();
+
+    Writer writer(
+        g_responseBuffer.data(),
+        g_responseBuffer.size());
+
+    BeginDataResponse(writer, message, "lte_signal");
+
+    writer.Append(",\"rssi\":");
+    writer.AppendSigned(status.rssi);
+
+    writer.Append(",\"ber\":");
+    writer.AppendUnsigned(status.ber);
+
+    writer.Append(",\"registered\":");
+    writer.AppendBoolean(status.registered);
+
+    writer.Append(",\"online\":");
+    writer.AppendBoolean(
+        WashTrac::LTE::IsOnline());
+
+    writer.Append("}");
+
+    SendBuiltResponse(message, "lte_signal", writer);
+}
+
+void HandleLteInfo(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    const WashTrac::LTE::Status& status =
+        WashTrac::LTE::GetStatus();
+
+    Writer writer(
+        g_responseBuffer.data(),
+        g_responseBuffer.size());
+
+    BeginDataResponse(writer, message, "lte_info");
+
+    writer.Append(",\"state\":");
+    writer.AppendEscapedString(
+        LteStateToString(status.state));
+
+    writer.Append(",\"imei\":");
+    writer.AppendEscapedString(status.imei);
+
+    writer.Append(",\"iccid\":");
+    writer.AppendEscapedString(status.iccid);
+
+    writer.Append(",\"carrier\":");
+    writer.AppendEscapedString(status.carrier);
+
+    writer.Append(",\"ip_address\":");
+    writer.AppendEscapedString(status.ipAddress);
+
+    writer.Append(",\"modem_present\":");
+    writer.AppendBoolean(status.modemPresent);
+
+    writer.Append(",\"sim_present\":");
+    writer.AppendBoolean(status.simPresent);
+
+    writer.Append(",\"registered\":");
+    writer.AppendBoolean(status.registered);
+
+    writer.Append("}");
+
+    SendBuiltResponse(message, "lte_info", writer);
+}
+
+void HandleLteRestart(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    WashTrac::LTE::Reset();
+
+    SendStandardResult(
+        message,
+        "lte_restart",
+        WashTrac::Result::OK);
+}
+
 void HandleFactoryReset(
     const WashTrac::JsonProtocol::Message& message)
 {
@@ -985,6 +1163,22 @@ void Dispatch(
 
         case Command::FactoryReset:
             HandleFactoryReset(message);
+            break;
+
+        case Command::LteStatus:
+            HandleLteStatus(message);
+            break;
+
+        case Command::LteSignal:
+            HandleLteSignal(message);
+            break;
+
+        case Command::LteInfo:
+            HandleLteInfo(message);
+            break;
+
+        case Command::LteRestart:
+            HandleLteRestart(message);
             break;
 
         case Command::Unknown:

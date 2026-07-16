@@ -24,6 +24,7 @@
 #include "gpio_manager.h"
 #include "input_manager.h"
 #include "manufacturing_self_test.h"
+#include "lte_manager.h"
 #include "relay_scheduler.h"
 #include "runtime_supervisor.h"
 #include "service_console.h"
@@ -188,6 +189,14 @@ bool InitializeSystem()
         return false;
     }
 
+    if (!WashTrac::LTE::Initialize())
+    {
+        ESP_LOGE(LOG_TAG, "LTE Manager initialization failed.");
+        return false;
+    }
+
+    ESP_LOGI(LOG_TAG, "LTE Manager initialized.");
+
     if (!CheckResult(
             WashTrac::CommandDispatcher::Initialize(),
             "CM5 Command Dispatcher"))
@@ -218,6 +227,7 @@ void RunSystem()
         WashTrac::RuntimeSupervisor::Update();
         WashTrac::Diagnostics::Update();
         WashTrac::CommandDispatcher::Update();
+        WashTrac::LTE::Update();
         WashTrac::ServiceConsole::Update();
 
         const int64_t loopEnd =

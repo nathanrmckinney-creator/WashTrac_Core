@@ -30,7 +30,8 @@ namespace WashTrac::JsonProtocol
 
 constexpr std::size_t REQUEST_ID_LENGTH = 40U;
 constexpr std::size_t NAME_LENGTH = 32U;
-constexpr std::size_t RESPONSE_LENGTH = 1024U;
+constexpr std::size_t APN_LENGTH = 64U;
+constexpr std::size_t RESPONSE_LENGTH = 2048U;
 
 enum class Command : uint8_t
 {
@@ -49,7 +50,12 @@ enum class Command : uint8_t
     LteStatus,
     LteSignal,
     LteInfo,
-    LteRestart
+    LteRestart,
+    LteConnect,
+    LteDisconnect,
+    LteGetConfig,
+    LteSetConfig,
+    LteDiagnostics
 };
 
 struct Message
@@ -58,12 +64,14 @@ struct Message
 
     char requestId[REQUEST_ID_LENGTH];
     char name[NAME_LENGTH];
+    char apn[APN_LENGTH];
 
     uint8_t relayNumber;
     uint8_t inputNumber;
 
     bool enabled;
     bool inverted;
+    bool automaticReconnect;
 
     uint16_t onDelaySeconds;
     uint16_t durationSeconds;
@@ -72,17 +80,24 @@ struct Message
     uint16_t washBusyReleaseDelaySeconds;
     uint16_t interWashDelaySeconds;
 
+    uint32_t reconnectInitialDelaySeconds;
+    uint32_t reconnectMaximumDelaySeconds;
+
     bool hasRequestId;
     bool hasName;
+    bool hasApn;
     bool hasRelayNumber;
     bool hasInputNumber;
     bool hasEnabled;
     bool hasInverted;
+    bool hasAutomaticReconnect;
     bool hasOnDelaySeconds;
     bool hasDurationSeconds;
     bool hasOffDelaySeconds;
     bool hasWashBusyReleaseDelaySeconds;
     bool hasInterWashDelaySeconds;
+    bool hasReconnectInitialDelaySeconds;
+    bool hasReconnectMaximumDelaySeconds;
 };
 
 Result Parse(

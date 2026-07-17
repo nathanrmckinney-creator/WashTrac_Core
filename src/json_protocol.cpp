@@ -43,7 +43,7 @@ using WashTrac::JsonProtocol::Command;
 using WashTrac::JsonProtocol::Message;
 
 constexpr std::size_t KEY_LENGTH = 48U;
-constexpr std::size_t STRING_VALUE_LENGTH = 96U;
+constexpr std::size_t STRING_VALUE_LENGTH = 128U;
 
 enum class ValueType : uint8_t
 {
@@ -325,8 +325,7 @@ private:
                 static_cast<unsigned char>(
                     text_[position_])) != 0)
         {
-            value.type =
-                ValueType::UnsignedInteger;
+            value.type = ValueType::UnsignedInteger;
 
             return ParseUnsignedInteger(
                 value.unsignedValue);
@@ -360,6 +359,13 @@ private:
         const std::size_t destinationSize,
         const char* source)
     {
+        if (destination == nullptr ||
+            destinationSize == 0U ||
+            source == nullptr)
+        {
+            return false;
+        }
+
         const std::size_t sourceLength =
             std::strlen(source);
 
@@ -423,6 +429,21 @@ private:
         if (std::strcmp(command, "lte_restart") == 0)
             return Command::LteRestart;
 
+        if (std::strcmp(command, "lte_connect") == 0)
+            return Command::LteConnect;
+
+        if (std::strcmp(command, "lte_disconnect") == 0)
+            return Command::LteDisconnect;
+
+        if (std::strcmp(command, "lte_get_config") == 0)
+            return Command::LteGetConfig;
+
+        if (std::strcmp(command, "lte_set_config") == 0)
+            return Command::LteSetConfig;
+
+        if (std::strcmp(command, "lte_diagnostics") == 0)
+            return Command::LteDiagnostics;
+
         return Command::Unknown;
     }
 
@@ -443,6 +464,22 @@ private:
             static_cast<uint16_t>(
                 value.unsignedValue);
 
+        present = true;
+        return true;
+    }
+
+    static bool AssignUnsigned32(
+        const ParsedValue& value,
+        uint32_t& destination,
+        bool& present)
+    {
+        if (present ||
+            value.type != ValueType::UnsignedInteger)
+        {
+            return false;
+        }
+
+        destination = value.unsignedValue;
         present = true;
         return true;
     }
@@ -496,6 +533,22 @@ private:
             }
 
             message.hasName = true;
+            return true;
+        }
+
+        if (std::strcmp(key, "apn") == 0)
+        {
+            if (message.hasApn ||
+                value.type != ValueType::String ||
+                !CopyString(
+                    message.apn,
+                    sizeof(message.apn),
+                    value.stringValue.data()))
+            {
+                return false;
+            }
+
+            message.hasApn = true;
             return true;
         }
 
@@ -561,6 +614,19 @@ private:
             return true;
         }
 
+        if (std::strcmp(key, "automatic_reconnect") == 0)
+        {
+            if (message.hasAutomaticReconnect ||
+                value.type != ValueType::Boolean)
+            {
+                return false;
+            }
+
+            message.automaticReconnect = value.booleanValue;
+            message.hasAutomaticReconnect = true;
+            return true;
+        }
+
         if (std::strcmp(key, "on_delay") == 0)
         {
             return AssignUnsigned16(
@@ -601,7 +667,86 @@ private:
                 message.hasInterWashDelaySeconds);
         }
 
+        if (std::strcmp(key, "reconnect_initial_delay") == 0)
+        {
+            return AssignUnsigned32(
+                value,
+                message.reconnectInitialDelaySeconds,
+                message.hasReconnectInitialDelaySeconds);
+        }
+
+        if (std::strcmp(key, "reconnect_maximum_delay") == 0)
+        {
+            return AssignUnsigned32(
+                value,
+                message.reconnectMaximumDelaySeconds,
+                message.hasReconnectMaximumDelaySeconds);
+        }
+
         return false;
+    }
+
+    static bool HasUnexpectedFieldsForNoArgumentCommand(
+        const Message& message)
+    {
+        return
+            message.hasName ||
+            message.hasApn ||
+            message.hasRelayNumber ||
+            message.hasInputNumber ||
+            message.hasEnabled ||
+            message.hasInverted ||
+            message.hasAutomaticReconnect ||
+            message.hasOnDelaySeconds ||
+            message.hasDurationSeconds ||
+            message.hasOffDelaySeconds ||
+            message.hasWashBusyReleaseDelaySeconds ||
+            message.hasInterWashDelaySeconds ||
+            message.hasReconnectInitialDelaySeconds ||
+            message.hasReconnectMaximumDelaySeconds;
+    }
+
+    static bool ValidateLteSetConfig(const Message& message)
+    {
+        if (!message.hasApn &&
+            !message.hasAutomaticReconnect &&
+            !message.hasReconnectInitialDelaySeconds &&
+            !message.hasReconnectMaximumDelaySeconds)
+        {
+            return false;
+        }
+
+        if (message.hasReconnectInitialDelaySeconds &&
+            message.reconnectInitialDelaySeconds == 0U)
+        {
+            return false;
+        }
+
+        if (message.hasReconnectMaximumDelaySeconds &&
+            message.reconnectMaximumDelaySeconds == 0U)
+        {
+            return false;
+        }
+
+        if (message.hasReconnectInitialDelaySeconds &&
+            message.hasReconnectMaximumDelaySeconds &&
+            message.reconnectMaximumDelaySeconds <
+                message.reconnectInitialDelaySeconds)
+        {
+            return false;
+        }
+
+        return
+            !message.hasName &&
+            !message.hasRelayNumber &&
+            !message.hasInputNumber &&
+            !message.hasEnabled &&
+            !message.hasInverted &&
+            !message.hasOnDelaySeconds &&
+            !message.hasDurationSeconds &&
+            !message.hasOffDelaySeconds &&
+            !message.hasWashBusyReleaseDelaySeconds &&
+            !message.hasInterWashDelaySeconds;
     }
 
     static bool ValidateMessage(const Message& message)
@@ -625,25 +770,65 @@ private:
             case Command::LteSignal:
             case Command::LteInfo:
             case Command::LteRestart:
-                return true;
+            case Command::LteConnect:
+            case Command::LteDisconnect:
+            case Command::LteGetConfig:
+            case Command::LteDiagnostics:
+                return !HasUnexpectedFieldsForNoArgumentCommand(message);
 
             case Command::SetRelay:
-                return message.hasRelayNumber &&
-                       message.hasEnabled &&
-                       message.hasName &&
-                       message.hasOnDelaySeconds &&
-                       message.hasDurationSeconds &&
-                       message.hasOffDelaySeconds;
+                return
+                    message.hasRelayNumber &&
+                    message.hasEnabled &&
+                    message.hasName &&
+                    message.hasOnDelaySeconds &&
+                    message.hasDurationSeconds &&
+                    message.hasOffDelaySeconds &&
+                    !message.hasApn &&
+                    !message.hasInputNumber &&
+                    !message.hasInverted &&
+                    !message.hasAutomaticReconnect &&
+                    !message.hasWashBusyReleaseDelaySeconds &&
+                    !message.hasInterWashDelaySeconds &&
+                    !message.hasReconnectInitialDelaySeconds &&
+                    !message.hasReconnectMaximumDelaySeconds;
 
             case Command::SetInput:
-                return message.hasInputNumber &&
-                       message.hasEnabled &&
-                       message.hasInverted &&
-                       message.hasName;
+                return
+                    message.hasInputNumber &&
+                    message.hasEnabled &&
+                    message.hasInverted &&
+                    message.hasName &&
+                    !message.hasApn &&
+                    !message.hasRelayNumber &&
+                    !message.hasAutomaticReconnect &&
+                    !message.hasOnDelaySeconds &&
+                    !message.hasDurationSeconds &&
+                    !message.hasOffDelaySeconds &&
+                    !message.hasWashBusyReleaseDelaySeconds &&
+                    !message.hasInterWashDelaySeconds &&
+                    !message.hasReconnectInitialDelaySeconds &&
+                    !message.hasReconnectMaximumDelaySeconds;
 
             case Command::SetTiming:
-                return message.hasWashBusyReleaseDelaySeconds ||
-                       message.hasInterWashDelaySeconds;
+                return
+                    (message.hasWashBusyReleaseDelaySeconds ||
+                     message.hasInterWashDelaySeconds) &&
+                    !message.hasName &&
+                    !message.hasApn &&
+                    !message.hasRelayNumber &&
+                    !message.hasInputNumber &&
+                    !message.hasEnabled &&
+                    !message.hasInverted &&
+                    !message.hasAutomaticReconnect &&
+                    !message.hasOnDelaySeconds &&
+                    !message.hasDurationSeconds &&
+                    !message.hasOffDelaySeconds &&
+                    !message.hasReconnectInitialDelaySeconds &&
+                    !message.hasReconnectMaximumDelaySeconds;
+
+            case Command::LteSetConfig:
+                return ValidateLteSetConfig(message);
 
             default:
                 return false;
@@ -700,7 +885,7 @@ public:
 
     bool AppendEscapedString(const char* text)
     {
-        if (!Append("\""))
+        if (text == nullptr || !Append("\""))
         {
             return false;
         }
@@ -927,6 +1112,21 @@ const char* CommandToString(const Command command)
 
         case Command::LteRestart:
             return "lte_restart";
+
+        case Command::LteConnect:
+            return "lte_connect";
+
+        case Command::LteDisconnect:
+            return "lte_disconnect";
+
+        case Command::LteGetConfig:
+            return "lte_get_config";
+
+        case Command::LteSetConfig:
+            return "lte_set_config";
+
+        case Command::LteDiagnostics:
+            return "lte_diagnostics";
 
         default:
             return "unknown";

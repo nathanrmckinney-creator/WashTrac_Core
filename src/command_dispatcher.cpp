@@ -284,26 +284,74 @@ const char* LteStateToString(
 
     switch (state)
     {
-        case ModemState::Off:
-            return "off";
+        case ModemState::Off: return "off";
+        case ModemState::Initializing: return "initializing";
+        case ModemState::Ready: return "ready";
+        case ModemState::Registering: return "registering";
+        case ModemState::Connecting: return "connecting";
+        case ModemState::Online: return "online";
+        case ModemState::Disconnecting: return "disconnecting";
+        case ModemState::Reconnecting: return "reconnecting";
+        case ModemState::Restarting: return "restarting";
+        case ModemState::Error: return "error";
+        default: return "unknown";
+    }
+}
 
-        case ModemState::Initializing:
-            return "initializing";
+const char* LteDataSessionStateToString(
+    const WashTrac::LTE::DataSessionState state)
+{
+    using WashTrac::LTE::DataSessionState;
 
-        case ModemState::Ready:
-            return "ready";
+    switch (state)
+    {
+        case DataSessionState::Inactive: return "inactive";
+        case DataSessionState::Configuring: return "configuring";
+        case DataSessionState::Attaching: return "attaching";
+        case DataSessionState::Activating: return "activating";
+        case DataSessionState::Active: return "active";
+        case DataSessionState::Deactivating: return "deactivating";
+        case DataSessionState::Error: return "error";
+        default: return "unknown";
+    }
+}
 
-        case ModemState::Registering:
-            return "registering";
+const char* LteRegistrationStateToString(
+    const WashTrac::LTE::RegistrationState state)
+{
+    using WashTrac::LTE::RegistrationState;
 
-        case ModemState::Online:
-            return "online";
+    switch (state)
+    {
+        case RegistrationState::Unknown: return "unknown";
+        case RegistrationState::NotRegistered: return "not_registered";
+        case RegistrationState::RegisteredHome: return "registered_home";
+        case RegistrationState::Searching: return "searching";
+        case RegistrationState::RegistrationDenied: return "denied";
+        case RegistrationState::RegisteredRoaming: return "registered_roaming";
+        default: return "unknown";
+    }
+}
 
-        case ModemState::Error:
-            return "error";
+const char* LteDisconnectReasonToString(
+    const WashTrac::LTE::DisconnectReason reason)
+{
+    using WashTrac::LTE::DisconnectReason;
 
-        default:
-            return "unknown";
+    switch (reason)
+    {
+        case DisconnectReason::None: return "none";
+        case DisconnectReason::RegistrationLost: return "registration_lost";
+        case DisconnectReason::PacketAttachLost: return "packet_attach_lost";
+        case DisconnectReason::PDPContextLost: return "pdp_context_lost";
+        case DisconnectReason::NoIPAddress: return "no_ip_address";
+        case DisconnectReason::CommandTimeout: return "command_timeout";
+        case DisconnectReason::CommandRejected: return "command_rejected";
+        case DisconnectReason::ModemRestart: return "modem_restart";
+        case DisconnectReason::ManualDisconnect: return "manual_disconnect";
+        case DisconnectReason::InitializationFailure: return "initialization_failure";
+        case DisconnectReason::Unknown: return "unknown";
+        default: return "unknown";
     }
 }
 
@@ -970,6 +1018,39 @@ void HandleSaveConfig(
 }
 
 
+void AppendLteRegistration(
+    Writer& writer,
+    const WashTrac::LTE::RegistrationDetails& registration)
+{
+    writer.Append(",\"registration_state\":");
+    writer.AppendEscapedString(
+        LteRegistrationStateToString(registration.state));
+
+    writer.Append(",\"registered\":");
+    writer.AppendBoolean(registration.registered);
+
+    writer.Append(",\"roaming\":");
+    writer.AppendBoolean(registration.roaming);
+
+    writer.Append(",\"carrier\":");
+    writer.AppendEscapedString(registration.carrier);
+
+    writer.Append(",\"mcc\":");
+    writer.AppendUnsigned(registration.mcc);
+
+    writer.Append(",\"mnc\":");
+    writer.AppendUnsigned(registration.mnc);
+
+    writer.Append(",\"tac\":");
+    writer.AppendUnsigned(registration.tac);
+
+    writer.Append(",\"cell_id\":");
+    writer.AppendUnsigned(registration.cellId);
+
+    writer.Append(",\"access_technology\":");
+    writer.AppendUnsigned(registration.accessTechnology);
+}
+
 void HandleLteStatus(
     const WashTrac::JsonProtocol::Message& message)
 {
@@ -986,27 +1067,35 @@ void HandleLteStatus(
     writer.AppendEscapedString(
         LteStateToString(status.state));
 
+    writer.Append(",\"data_session_state\":");
+    writer.AppendEscapedString(
+        LteDataSessionStateToString(status.dataSessionState));
+
     writer.Append(",\"modem_present\":");
     writer.AppendBoolean(status.modemPresent);
 
     writer.Append(",\"sim_present\":");
     writer.AppendBoolean(status.simPresent);
 
-    writer.Append(",\"registered\":");
-    writer.AppendBoolean(status.registered);
+    writer.Append(",\"packet_attached\":");
+    writer.AppendBoolean(status.packetAttached);
+
+    writer.Append(",\"data_session_active\":");
+    writer.AppendBoolean(status.dataSessionActive);
 
     writer.Append(",\"online\":");
-    writer.AppendBoolean(
-        WashTrac::LTE::IsOnline());
+    writer.AppendBoolean(WashTrac::LTE::IsOnline());
 
-    writer.Append(",\"carrier\":");
-    writer.AppendEscapedString(status.carrier);
+    AppendLteRegistration(writer, status.registration);
 
     writer.Append(",\"ip_address\":");
     writer.AppendEscapedString(status.ipAddress);
 
     writer.Append(",\"uptime_seconds\":");
     writer.AppendUnsigned(status.uptimeSeconds);
+
+    writer.Append(",\"modem_uptime_seconds\":");
+    writer.AppendUnsigned(status.modemUptimeSeconds);
 
     writer.Append("}");
 
@@ -1026,17 +1115,28 @@ void HandleLteSignal(
     BeginDataResponse(writer, message, "lte_signal");
 
     writer.Append(",\"rssi\":");
-    writer.AppendSigned(status.rssi);
+    writer.AppendSigned(status.signal.rssi);
 
     writer.Append(",\"ber\":");
-    writer.AppendUnsigned(status.ber);
+    writer.AppendUnsigned(status.signal.ber);
+
+    writer.Append(",\"rsrp\":");
+    writer.AppendSigned(status.signal.rsrp);
+
+    writer.Append(",\"rsrq\":");
+    writer.AppendSigned(status.signal.rsrq);
+
+    writer.Append(",\"sinr\":");
+    writer.AppendSigned(status.signal.sinr);
 
     writer.Append(",\"registered\":");
-    writer.AppendBoolean(status.registered);
+    writer.AppendBoolean(status.registration.registered);
+
+    writer.Append(",\"roaming\":");
+    writer.AppendBoolean(status.registration.roaming);
 
     writer.Append(",\"online\":");
-    writer.AppendBoolean(
-        WashTrac::LTE::IsOnline());
+    writer.AppendBoolean(WashTrac::LTE::IsOnline());
 
     writer.Append("}");
 
@@ -1062,11 +1162,16 @@ void HandleLteInfo(
     writer.Append(",\"imei\":");
     writer.AppendEscapedString(status.imei);
 
+    writer.Append(",\"imsi\":");
+    writer.AppendEscapedString(status.imsi);
+
     writer.Append(",\"iccid\":");
     writer.AppendEscapedString(status.iccid);
 
-    writer.Append(",\"carrier\":");
-    writer.AppendEscapedString(status.carrier);
+    writer.Append(",\"firmware_version\":");
+    writer.AppendEscapedString(status.firmwareVersion);
+
+    AppendLteRegistration(writer, status.registration);
 
     writer.Append(",\"ip_address\":");
     writer.AppendEscapedString(status.ipAddress);
@@ -1077,24 +1182,185 @@ void HandleLteInfo(
     writer.Append(",\"sim_present\":");
     writer.AppendBoolean(status.simPresent);
 
-    writer.Append(",\"registered\":");
-    writer.AppendBoolean(status.registered);
+    writer.Append(",\"packet_attached\":");
+    writer.AppendBoolean(status.packetAttached);
+
+    writer.Append(",\"data_session_active\":");
+    writer.AppendBoolean(status.dataSessionActive);
 
     writer.Append("}");
 
     SendBuiltResponse(message, "lte_info", writer);
 }
 
+void HandleLteGetConfig(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    const WashTrac::LTE::Configuration& config =
+        WashTrac::LTE::GetConfiguration();
+
+    Writer writer(
+        g_responseBuffer.data(),
+        g_responseBuffer.size());
+
+    BeginDataResponse(writer, message, "lte_get_config");
+
+    writer.Append(",\"apn\":");
+    writer.AppendEscapedString(config.apn);
+
+    writer.Append(",\"automatic_reconnect\":");
+    writer.AppendBoolean(config.automaticReconnectEnabled);
+
+    writer.Append(",\"reconnect_initial_delay\":");
+    writer.AppendUnsigned(config.reconnectInitialDelaySeconds);
+
+    writer.Append(",\"reconnect_maximum_delay\":");
+    writer.AppendUnsigned(config.reconnectMaximumDelaySeconds);
+
+    writer.Append("}");
+
+    SendBuiltResponse(message, "lte_get_config", writer);
+}
+
+void HandleLteSetConfig(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    if (message.hasReconnectInitialDelaySeconds ||
+        message.hasReconnectMaximumDelaySeconds)
+    {
+        SendStandardError(
+            message,
+            "lte_set_config",
+            "reconnect_delay_update_not_supported");
+
+        return;
+    }
+
+    if (message.hasApn &&
+        !WashTrac::LTE::SetAPN(message.apn))
+    {
+        SendStandardError(
+            message,
+            "lte_set_config",
+            "invalid_apn_or_storage_failure");
+
+        return;
+    }
+
+    if (message.hasAutomaticReconnect &&
+        !WashTrac::LTE::SetAutomaticReconnectEnabled(
+            message.automaticReconnect))
+    {
+        SendStandardError(
+            message,
+            "lte_set_config",
+            "storage_failure");
+
+        return;
+    }
+
+    HandleLteGetConfig(message);
+}
+
+void HandleLteConnect(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    SendStandardResult(
+        message,
+        "lte_connect",
+        WashTrac::LTE::ConnectDataSession()
+            ? WashTrac::Result::OK
+            : WashTrac::Result::NOT_INITIALIZED);
+}
+
+void HandleLteDisconnect(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    SendStandardResult(
+        message,
+        "lte_disconnect",
+        WashTrac::LTE::DisconnectDataSession()
+            ? WashTrac::Result::OK
+            : WashTrac::Result::NOT_INITIALIZED);
+}
+
+void HandleLteDiagnostics(
+    const WashTrac::JsonProtocol::Message& message)
+{
+    const WashTrac::LTE::Status& status =
+        WashTrac::LTE::GetStatus();
+
+    Writer writer(
+        g_responseBuffer.data(),
+        g_responseBuffer.size());
+
+    BeginDataResponse(writer, message, "lte_diagnostics");
+
+    writer.Append(",\"last_disconnect_reason\":");
+    writer.AppendEscapedString(
+        LteDisconnectReasonToString(
+            status.diagnostics.lastDisconnectReason));
+
+    writer.Append(",\"last_cme_error\":");
+    writer.AppendSigned(status.diagnostics.lastCmeError);
+
+    writer.Append(",\"last_cms_error\":");
+    writer.AppendSigned(status.diagnostics.lastCmsError);
+
+    writer.Append(",\"last_successful_command_age_seconds\":");
+    writer.AppendUnsigned(
+        status.diagnostics.lastSuccessfulCommandAgeSeconds);
+
+    writer.Append(",\"last_registration_age_seconds\":");
+    writer.AppendUnsigned(
+        status.diagnostics.lastRegistrationAgeSeconds);
+
+    writer.Append(",\"last_data_session_age_seconds\":");
+    writer.AppendUnsigned(
+        status.diagnostics.lastDataSessionAgeSeconds);
+
+    writer.Append(",\"last_command\":");
+    writer.AppendEscapedString(status.diagnostics.lastCommand);
+
+    writer.Append(",\"last_error\":");
+    writer.AppendEscapedString(status.diagnostics.lastError);
+
+    writer.Append(",\"modem_restart_count\":");
+    writer.AppendUnsigned(status.counters.modemRestartCount);
+
+    writer.Append(",\"reconnect_count\":");
+    writer.AppendUnsigned(status.counters.reconnectCount);
+
+    writer.Append(",\"registration_failure_count\":");
+    writer.AppendUnsigned(
+        status.counters.registrationFailureCount);
+
+    writer.Append(",\"data_session_failure_count\":");
+    writer.AppendUnsigned(
+        status.counters.dataSessionFailureCount);
+
+    writer.Append(",\"command_timeout_count\":");
+    writer.AppendUnsigned(status.counters.commandTimeoutCount);
+
+    writer.Append(",\"command_error_count\":");
+    writer.AppendUnsigned(status.counters.commandErrorCount);
+
+    writer.Append("}");
+
+    SendBuiltResponse(message, "lte_diagnostics", writer);
+}
+
 void HandleLteRestart(
     const WashTrac::JsonProtocol::Message& message)
 {
-    WashTrac::LTE::Reset();
-
     SendStandardResult(
         message,
         "lte_restart",
-        WashTrac::Result::OK);
+        WashTrac::LTE::RestartModem()
+            ? WashTrac::Result::OK
+            : WashTrac::Result::NOT_INITIALIZED);
 }
+
 
 void HandleFactoryReset(
     const WashTrac::JsonProtocol::Message& message)
@@ -1179,6 +1445,26 @@ void Dispatch(
 
         case Command::LteRestart:
             HandleLteRestart(message);
+            break;
+
+        case Command::LteConnect:
+            HandleLteConnect(message);
+            break;
+
+        case Command::LteDisconnect:
+            HandleLteDisconnect(message);
+            break;
+
+        case Command::LteGetConfig:
+            HandleLteGetConfig(message);
+            break;
+
+        case Command::LteSetConfig:
+            HandleLteSetConfig(message);
+            break;
+
+        case Command::LteDiagnostics:
+            HandleLteDiagnostics(message);
             break;
 
         case Command::Unknown:
